@@ -1,0 +1,83 @@
+# This file is about Envoy Configuration: Static
+
+# Static Resource is Statically specified resources.   
+# so yaml static_resources key(..?key라고 하나? 정확한 명칭이 알고싶다면 패킴 yaml 강의 잠깐 보기)contain everything that is configured statically when Envoy starts, as opposed to dynamically at runtime.
+# 그니까 정리하면 static_resources: 아래에 정의한 것들은 Envoy 사용이 시작될 때 설정값들이 되는 거임. 그리고 이 설정값들에는 listener 정보, cluster 정보 등이 있음. 
+
+# For more information, see https://www.envoyproxy.io/docs/envoy/latest/start/quick-start/configuration-static
+
+static_resources:
+
+  listeners: # Notion에 정리했듯이 What address we listening for (..? 뭘 정리했는데! 하나도 이해 안됐으니까 다시 알아보고 보충해놔.)
+  - name: listener_0 
+    address:
+      socket_address:
+        address: 0.0.0.0 # listen for all 
+        port_value: 8080
+    filter_chains: # Notion에 정리했듯이 (..? 뭘 정리했는데! 하나도 이해 안됐으니까 다시 알아보고 보충해놔.)
+    - filters:
+      - name: envoy.filters.network.http_connection_manager # http filter
+        typed_config: # What exact type we're pulling for. 
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          access_log:
+          - name: envoy.access_loggers.stdout
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+          http_filters:
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service # The ID of the cluster.
+              domains: ["*"]
+              routes: # What are we match - 1
+              - match: 
+                  prefix: "/" # anything that comes here with prefix : '/' - 2
+                route: # immediately go ans route to this cluster (service_envoyproxy_io) - 3
+                  host_rewrite_literal: www.envoyproxy.io
+                  cluster: service_envoyproxy_io # All paths are matched and routed to the service_envoyproxy_io cluster.
+
+# And we don't have service_envoyproxy_io Backend cluster, so Let's build it. 
+  clusters:
+  - name: service_envoyproxy_io
+    type: LOGICAL_DNS
+    # Comment out the following line to test on v6 networks
+    dns_lookup_family: V4_ONLY
+    # lb_policy ? 
+    load_assignment:
+      cluster_name: service_envoyproxy_io
+      endpoints: # endpoint we're listening to 
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: www.envoyproxy.io # for example, localhost
+                port_value: 443 # 1111
+        # - endpoint:
+        #     address:
+        #       socket_address:
+        #         address: www.envoyproxy.io # localhost
+        #         port_value: 443 # 2222
+        # - endpoint:
+        #     address:
+        #       socket_address:
+        #         address: www.envoyproxy.io # localhost
+        #         port_value: 443 # 3333
+        # - endpoint:
+        #     address:
+        #       socket_address:
+        #         address: www.envoyproxy.io # localhost
+        #         port_value: 443 # 4444
+    transport_socket:
+      name: envoy.transport_sockets.tls
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+        sni: www.envoyproxy.io
+
+
+
+
+
