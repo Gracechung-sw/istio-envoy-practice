@@ -1,0 +1,96 @@
+--- # Edge proxy
+admin: # configures the admin server which can be used to view configurations, change log levels, view stats, etc…
+  access_log_path: "/tmp/admin_access.log"
+  address:
+    socket_address:
+      address: "127.0.0.1"
+      port_value: 9901
+static_resources:
+  listeners:   ######################################## 1. Define Listeners
+    - 
+      name: "http_listener"
+      address:
+        socket_address: 
+          address: "0.0.0.0"
+          port_value: 80 # Hit 0.0.0.0:80 
+      filter_chains: ######################################### 2. Define Filter chains
+        filters:
+          -
+            name: "envoy.http_connection_manager" # 
+            config:
+              start_prefix: "ingress" ######################################## 3. Define Routes 
+              codec_type: "AUTO" #
+              generate_request_id: true #
+              route_config:
+                # if a service wants to call another service, it doesn’t call the destination service directly, 
+                # it routes the request first to the local proxy and the proxy routes it to the destination service. 
+                name: "local_route" # 
+                virtual_hosts:
+                -
+                  name: "http-route"
+                  domains: # which domains you should accept the requests 
+                    - "*" 
+                  routes: # route matcher which matches against each request and sends the request to the appropriate cluster.
+                    - 
+                      match:
+                        prefix: "/" #
+                      route:
+                        cluster: "service_a"
+                    # Define other 'match:' to route other cluster by subdomain
+                    # ex. 
+                    # -
+                    #   match: 
+                    #     prefix: "/nodejs" #  if the subdomain is “host:port/nodeJs,” the router will choose the nodejs cluster
+                    #   route:
+                    #     prefix_rewrite: "/" #  and the URL will be rewritten to “host:port/” (this way the request for the concrete service won’t contain the /nodesJs part). 
+                    #     cluster: "nodejs"  # 그럼 이 nodejs cluster의 service는 /nodejs 라는 엔드포인트를 신경쓰지 않고 
+                    # - 
+                    #   match: 
+                    #     prefix: "/nestjs" # /nestjs subdomain의 경우도 마찬가지임. 
+                    #   route:
+                    #     prefix_rewrite: "/"
+                    #     cluster: "nestjs"
+                    # - 
+              http_filters:
+                -
+                  name: "envoy.router"
+
+  clusters: ######################################### 4. Define clusters
+    -
+      name: "service_a" # upstream services to which Envoy routes traffic to.
+      connect_timeout: "0.25s" # time limit to get a connection to the upstream service before returning a 503.
+      type: "strict_dns"
+      lb_policy: "ROUND_ROBIN" # there will be more than one instance of “Service A”, and envoy supports multiple load balancing algorithms to route traffic. 
+      hosts: # “hosts” specify the instances of Service A to which we want to route traffic to
+        - 
+          socket_address:
+            address: "service_a_envoy" # do not talk to “Service A” directly, we talk to an instance of Service A’s Envoy proxy.
+            port_value: 8786
+        # Define other 'socket_address:' if other instance is existed.
+        # ex. 
+        # - 
+        #   socket_address: 
+        #     address: "service_a2_envoy"
+        #     port_value: 8789
+    # 위 submodule 예시에 해당하는 cluster 정의
+    # - 
+    #   name: "nodejs"
+    #   connect_timeout: "0.25s"
+    #   type: "strict_dns"
+    #   lb_policy: "ROUND_ROBIN"
+    #   hosts:
+    #     -
+    #       socket_address:
+    #         address: "service_4_envoy"
+    #         port_value: 8792
+    # -
+    #   name: "nestjs"
+    #   connect_timeout: "0.25s"
+    #   type: "strict_dns"
+    #   lb_policy: "ROUND_ROBIN"
+    #   hosts:
+    #     -
+    #       socket_address:
+    #         address: "service_5_envoy"
+    #         port_value: 8793
+          
