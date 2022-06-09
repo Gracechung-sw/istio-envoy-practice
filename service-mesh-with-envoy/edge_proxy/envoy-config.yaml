@@ -1,0 +1,92 @@
+# Envoy proxy redirects the traffic to the real service.
+---
+admin:
+  access_log_path: "/tmp/admin_access.log"
+  address: 
+    socket_address: 
+      address: "127.0.0.1"
+      port_value: 9901
+static_resources: 
+### Define listeners
+  listeners: 
+    - 
+      name: "http_listener"
+      address: 
+        socket_address: 
+          address: "0.0.0.0"
+          port_value: 80
+### Define filters to match the routes and to rewrite the target routes
+      filter_chains:
+          filters: 
+            - 
+              name: "envoy.http_connection_manager" # basic filters, to match the routes and to rewrite the target routes. 
+              config:
+                stat_prefix: "ingress"
+                codec_type: "AUTO"
+                generate_request_id: true
+                route_config: 
+                  name: "local_route"
+                  virtual_hosts: 
+                    - 
+                      name: "http-route"
+                      domains: 
+                        - "*"
+                      routes:
+                        - 
+                          match: 
+                            prefix: "/nodejs" #  if the subdomain is “host:port/nodeJs,” the router will choose the nodejs cluster
+                          route:
+                            prefix_rewrite: "/" #  and the URL will be rewritten to “host:port/” (this way the request for the concrete service won’t contain the /nodesJs part). 
+                            cluster: "nodejs"  # 그럼 이 nodejs cluster의 service는 /nodejs 라는 엔드포인트를 신경쓰지 않고 
+                        - 
+                          match: 
+                            prefix: "/nestjs" # /nestjs subdomain의 경우도 마찬가지임. 
+                          route:
+                            prefix_rewrite: "/"
+                            cluster: "nestjs"
+                        - 
+                          match: 
+                            path: "/" # If we don’t have a subdomain in the request, then the request will be routed
+                          route:
+                            cluster: "base" #  to the cluster called base without prefix rewrite filter.
+                http_filters:
+                  - 
+                    name: "envoy.router"
+                    config: {}
+    # 그럼 여기선 Group of Backend hosts, endpoints인 cluster를 정의해줘야겠음. 
+    # 위에서 나온 cluster는 nodejs, nestjs, base가 있는데, 
+  clusters:
+    - 
+      name: "base" # base cluster를 구성하는 backend hosts는 2개로, 
+      connect_timeout: "0.25s"
+      type: "strict_dns"
+      lb_policy: "ROUND_ROBIN" # 이에 대해 Load balancing policy는 Round Robin을 사용할 것이다. 
+      hosts:
+        - 
+          socket_address: 
+            address: "service_1_envoy"
+            port_value: 8786
+        - 
+          socket_address: 
+            address: "service_2_envoy"
+            port_value: 8789
+    - # 위 base의 경우와 달리 nodejs, nestjs cluster는 only a single service.
+      name: "nodejs"
+      connect_timeout: "0.25s"
+      type: "strict_dns"
+      lb_policy: "ROUND_ROBIN"
+      hosts:
+        -
+          socket_address:
+            address: "service_4_envoy"
+            port_value: 8792
+    -
+      name: "nestjs"
+      connect_timeout: "0.25s"
+      type: "strict_dns"
+      lb_policy: "ROUND_ROBIN"
+      hosts:
+        -
+          socket_address:
+            address: "service_5_envoy"
+            port_value: 8793
