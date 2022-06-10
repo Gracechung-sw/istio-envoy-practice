@@ -21,7 +21,7 @@ static_resources:
             -
               name: "envoy.http_connection_manager"
               config:
-                stat_prefix: "ingress" # service-1-svc-http-listene는 ingress
+                stat_prefix: "ingress"
                 codec_type: "AUTO"
                 route_config:
                   name: "service-1-svc-http-route"

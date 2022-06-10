@@ -34,18 +34,6 @@ static_resources:
                       routes:
                         - 
                           match: 
-                            prefix: "/nodejs" #  if the subdomain is “host:port/nodeJs,” the router will choose the nodejs cluster
-                          route:
-                            prefix_rewrite: "/" #  and the URL will be rewritten to “host:port/” (this way the request for the concrete service won’t contain the /nodesJs part). 
-                            cluster: "nodejs"  # 그럼 이 nodejs cluster의 service는 /nodejs 라는 엔드포인트를 신경쓰지 않고 
-                        - 
-                          match: 
-                            prefix: "/nestjs" # /nestjs subdomain의 경우도 마찬가지임. 
-                          route:
-                            prefix_rewrite: "/"
-                            cluster: "nestjs"
-                        - 
-                          match: 
                             path: "/" # If we don’t have a subdomain in the request, then the request will be routed
                           route:
                             cluster: "base" #  to the cluster called base without prefix rewrite filter.
@@ -70,23 +58,3 @@ static_resources:
           socket_address: 
             address: "service_2_envoy"
             port_value: 8789
-    - # 위 base의 경우와 달리 nodejs, nestjs cluster는 only a single service.
-      name: "nodejs"
-      connect_timeout: "0.25s"
-      type: "strict_dns"
-      lb_policy: "ROUND_ROBIN"
-      hosts:
-        -
-          socket_address:
-            address: "service_4_envoy"
-            port_value: 8792
-    -
-      name: "nestjs"
-      connect_timeout: "0.25s"
-      type: "strict_dns"
-      lb_policy: "ROUND_ROBIN"
-      hosts:
-        -
-          socket_address:
-            address: "service_5_envoy"
-            port_value: 8793

@@ -48,29 +48,3 @@ services:
     build: service3/
     ports:
     - "5003:5003" 
-
-  service_4_envoy:
-    image: envoyproxy/envoy-alpine:v1.7.0
-    volumes:
-      - ./service4/envoy-config.yaml:/etc/envoy-config.yaml
-    ports:
-      - "8792:8792"
-    command: "/usr/local/bin/envoy -c /etc/envoy-config.yaml --v2-config-only -l info --service-cluster 'service-4' --service-node 'service-4' --log-format '[METADATA][%Y-%m-%d %T.%e][%t][%l][%n] %v'"  
-
-  service_4:
-    build: service4/
-    ports:
-    - "5004:5004"
-
-  service_5_envoy:
-    image: envoyproxy/envoy-alpine:v1.7.0
-    volumes:
-      - ./service5/envoy-config.yaml:/etc/envoy-config.yaml
-    ports:
-      - "8793:8793"
-    command: "/usr/local/bin/envoy -c /etc/envoy-config.yaml --v2-config-only -l info --service-cluster 'service-5' --service-node 'service-5' --log-format '[METADATA][%Y-%m-%d %T.%e][%t][%l][%n] %v'"  
-
-  service_5:
-    build: service5/
-    ports:
-    - "5005:5005"
